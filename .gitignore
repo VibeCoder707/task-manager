@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# environment variables — NEVER commit this
+.env
+
+# Claude Code local files
+.claude/context-timeline.log
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# logs
+*.log
+npm-debug.log*

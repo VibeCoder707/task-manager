@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '[(now | todate), \"STOP\", \"session=\" + (.session_id // \"unknown\")] | join(\" \")' >> .claude/context-timeline.log 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
