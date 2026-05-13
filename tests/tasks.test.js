@@ -25,6 +25,11 @@ test('defaults priority to medium', async () => {
   expect(task.priority).toBe('medium');
 });
 
+test('creates a task with labels', async () => {
+  const task = await createTask({ title: 'Design landing page', labels: ['design', 'work'], userId });
+  expect(task.labels).toEqual(['design', 'work']);
+});
+
 test('only returns tasks for the correct user', async () => {
   const otherUserId = new mongoose.Types.ObjectId();
   await createTask({ title: 'My task', userId });

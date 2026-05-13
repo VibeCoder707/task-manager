@@ -3,7 +3,7 @@ const router = express.Router();
 const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks } = require('../utils/taskService');
 const authMiddleware = require('../middleware/auth');
 
-const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority'];
+const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels'];
 
 router.use(authMiddleware);
 
@@ -25,7 +25,7 @@ router.post('/reorder', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { title, description, dueDate, priority } = req.body;
+    const { title, description, dueDate, priority, labels } = req.body;
     if (!title || typeof title !== 'string' || title.trim() === '') {
       return res.status(400).json({ error: 'title is required' });
     }
@@ -33,7 +33,7 @@ router.post('/', async (req, res, next) => {
     if (unknown.length > 0) {
       return res.status(400).json({ error: `unknown fields: ${unknown.join(', ')}` });
     }
-    const task = await createTask({ title: title.trim(), description, dueDate, priority, userId: req.userId });
+    const task = await createTask({ title: title.trim(), description, dueDate, priority, labels, userId: req.userId });
     res.status(201).json(task);
   } catch (err) { next(err); }
 });

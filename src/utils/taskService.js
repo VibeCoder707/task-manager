@@ -4,8 +4,8 @@ async function getAllTasks(userId) {
   return Task.find({ userId }).sort({ order: 1, _id: 1 });
 }
 
-async function createTask({ title, description, dueDate, priority, userId }) {
-  return Task.create({ title, description, dueDate, priority, userId });
+async function createTask({ title, description, dueDate, priority, labels, userId }) {
+  return Task.create({ title, description, dueDate, priority, labels, userId });
 }
 
 async function updateTask(id, updates, userId) {

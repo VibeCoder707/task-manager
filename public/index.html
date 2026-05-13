@@ -90,7 +90,7 @@
     #auth-panel input:focus {
       outline: none;
       border-color: #0d9488;
-      box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+      box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
     }
 
     #auth-panel button[type="submit"] {
@@ -107,7 +107,7 @@
       transition: background 0.15s;
     }
 
-    #auth-panel button[type="submit"]:hover { background: #4338ca; }
+    #auth-panel button[type="submit"]:hover { background: #0f766e; }
 
     #auth-error {
       color: #ef4444;
@@ -227,7 +227,7 @@
       transition: background 0.15s;
     }
 
-    #task-form button[type="submit"]:hover { background: #4338ca; }
+    #task-form button[type="submit"]:hover { background: #0f766e; }
 
     #error { color: #ef4444; font-size: 0.83rem; margin-bottom: 0.75rem; min-height: 1rem; }
 
@@ -294,9 +294,9 @@
     .task-card.completed { opacity: 0.45; }
     .task-card.completed h3 { text-decoration: line-through; color: #94a3b8; }
 
-    .task-card.overdue   { border-left: 3px solid #ef4444; }
-    .task-card.due-today { border-left: 3px solid #f97316; }
-    .task-card.due-soon  { border-left: 3px solid #eab308; }
+    .task-card.overdue   { background: #fef7f7; }
+    .task-card.due-today { background: #fff8f3; }
+    .task-card.due-soon  { background: #fefdf0; }
 
     /* Custom checkbox */
     .task-card input[type="checkbox"] {
@@ -415,6 +415,27 @@
       color: #0f172a;
     }
 
+    /* ── Label chips ── */
+    .label-chip {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.1rem 0.45rem;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+
+    .label-chip:hover { opacity: 0.75; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
     /* ── Empty state ── */
     #empty {
       text-align: center;
@@ -455,6 +476,7 @@
         </div>
         <div class="form-row-secondary">
           <input type="text" id="description" placeholder="Description">
+          <input type="text" id="labels" placeholder="Labels (e.g. work, design)">
           <input type="date" id="dueDate">
           <select id="priority">
             <option value="low">Low</option>
@@ -480,6 +502,7 @@
           <button class="filter-btn" onclick="setFilter('priority', 'medium', this)">Medium</button>
           <button class="filter-btn" onclick="setFilter('priority', 'low', this)">Low</button>
         </div>
+        <div id="label-filter-group" class="filter-group" hidden></div>
       </div>
 
       <p id="empty" hidden>You're all caught up!</p>
@@ -490,8 +513,28 @@
   <script>
     const API = '/api/tasks';
     let allTasks = [];
-    const filters = { status: 'all', priority: 'all' };
+    const filters = { status: 'all', priority: 'all', label: 'all' };
     let activeTab = 'login';
+
+    const LABEL_COLORS = [
+      { bg: '#f0fdf4', text: '#15803d' },
+      { bg: '#eff6ff', text: '#1d4ed8' },
+      { bg: '#fdf4ff', text: '#7e22ce' },
+      { bg: '#fff7ed', text: '#c2410c' },
+      { bg: '#f0f9ff', text: '#0369a1' },
+      { bg: '#fefce8', text: '#a16207' },
+      { bg: '#f5f3ff', text: '#6d28d9' },
+    ];
+
+    function labelColor(name) {
+      let h = 0;
+      for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffff;
+      return LABEL_COLORS[h % LABEL_COLORS.length];
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
     function authHeaders() {
       return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` };
@@ -552,21 +595,51 @@
       renderTasks();
     }
 
+    function filterByLabel(label) {
+      if (label === '__all__') {
+        filters.label = 'all';
+      } else {
+        filters.label = filters.label === label ? 'all' : label;
+      }
+      renderTasks();
+      renderLabelFilter();
+    }
+
+    function renderLabelFilter() {
+      const allLabels = [...new Set(allTasks.flatMap(t => t.labels || []))].sort();
+      const group = document.getElementById('label-filter-group');
+      if (allLabels.length === 0) { group.hidden = true; return; }
+      group.hidden = false;
+      const allBtn = `<button class="filter-btn ${filters.label === 'all' ? 'active' : ''}" onclick="filterByLabel('__all__')">All</button>`;
+      const labelBtns = allLabels.map(l => {
+        const { bg, text } = labelColor(l);
+        const isActive = filters.label === l;
+        return `<button class="filter-btn ${isActive ? 'active' : ''}" style="${isActive ? `color:${text}` : ''}" data-label="${escapeHtml(l)}" onclick="filterByLabel(this.dataset.label)">${escapeHtml(l)}</button>`;
+      }).join('');
+      group.innerHTML = `<span>Label</span>${allBtn}${labelBtns}`;
+    }
+
     function renderTasks() {
       const tasks = allTasks.filter(t => {
         if (filters.status === 'active'    && t.completed)  return false;
         if (filters.status === 'completed' && !t.completed) return false;
         if (filters.priority !== 'all' && t.priority !== filters.priority) return false;
+        if (filters.label !== 'all' && !(t.labels || []).includes(filters.label)) return false;
         return true;
       });
       const container = document.getElementById('tasks');
       document.getElementById('empty').hidden = tasks.length > 0;
       container.innerHTML = tasks.map(task => {
         const dc = task.completed ? '' : dueDateClass(task.dueDate);
-        const meta = [
+        const chips = (task.labels || []).map(l => {
+          const { bg, text } = labelColor(l);
+          return `<span class="label-chip" style="background:${bg};color:${text}" data-label="${escapeHtml(l)}" onclick="filterByLabel(this.dataset.label)" title="Filter by ${escapeHtml(l)}">${escapeHtml(l)}</span>`;
+        }).join('');
+        const metaText = [
           task.description ? `<span class="description">${task.description}</span>` : '',
           task.dueDate     ? `<span class="due-date ${dc}">Due ${task.dueDate}</span>` : '',
         ].filter(Boolean).join('<span style="color:#e2e8f0">·</span>');
+        const meta = chips + (chips && metaText ? '<span style="color:#e2e8f0;margin:0 0.15rem">·</span>' : '') + metaText;
         return `
         <div class="task-card ${task.completed ? 'completed' : ''} ${dc}"
           draggable="true"
@@ -662,6 +735,7 @@
       if (res.status === 401) { logout(); return; }
       allTasks = await res.json();
       renderTasks();
+      renderLabelFilter();
     }
 
     async function toggleTask(id, completed) {
@@ -694,12 +768,13 @@
       const description = document.getElementById('description').value.trim();
       const dueDate = document.getElementById('dueDate').value;
       const priority = document.getElementById('priority').value;
+      const labels = document.getElementById('labels').value.split(',').map(l => l.trim()).filter(Boolean);
       const errorEl = document.getElementById('error');
 
       const res = await fetch(API, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ title, description, dueDate, priority }),
+        body: JSON.stringify({ title, description, dueDate, priority, labels }),
       });
 
       if (!res.ok) {
