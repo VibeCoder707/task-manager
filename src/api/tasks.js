@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
 router.post('/reorder', async (req, res, next) => {
   try {
     const { ids } = req.body;
-    if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+    if (!Array.isArray(ids) || ids.length > 500) return res.status(400).json({ error: 'ids must be an array of at most 500 items' });
     await reorderTasks(ids, req.userId);
     res.json({ ok: true });
   } catch (err) { next(err); }

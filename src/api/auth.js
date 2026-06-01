@@ -24,6 +24,7 @@ router.post('/register', async (req, res, next) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    if (password.length > 128) return res.status(400).json({ error: 'Password must be at most 128 characters' });
 
     const existing = await User.findOne({ email });
     if (existing) return res.status(409).json({ error: 'Unable to create account' });
