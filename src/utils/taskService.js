@@ -15,7 +15,8 @@ async function updateTask(id, updates, userId) {
 }
 
 async function deleteTask(id, userId) {
-  await Task.deleteOne({ _id: id, userId });
+  const result = await Task.deleteOne({ _id: id, userId });
+  if (result.deletedCount === 0) throw new Error('Task not found');
 }
 
 async function reorderTasks(ids, userId) {

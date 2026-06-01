@@ -536,8 +536,8 @@
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    function authHeaders() {
-      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+    function jsonHeaders() {
+      return { 'Content-Type': 'application/json' };
     }
 
     function switchTab(tab) {
@@ -553,17 +553,16 @@
       const password = document.getElementById('auth-password').value;
       const res = await fetch(`/api/auth/${activeTab}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: jsonHeaders(),
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) { document.getElementById('auth-error').textContent = data.error; return; }
-      localStorage.setItem('token', data.token);
       showApp();
     }
 
-    function logout() {
-      localStorage.removeItem('token');
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
       document.getElementById('app').hidden = true;
       document.getElementById('auth-panel').hidden = false;
       document.getElementById('auth-error').textContent = '';
@@ -636,8 +635,8 @@
           return `<span class="label-chip" style="background:${bg};color:${text}" data-label="${escapeHtml(l)}" onclick="filterByLabel(this.dataset.label)" title="Filter by ${escapeHtml(l)}">${escapeHtml(l)}</span>`;
         }).join('');
         const metaText = [
-          task.description ? `<span class="description">${task.description}</span>` : '',
-          task.dueDate     ? `<span class="due-date ${dc}">Due ${task.dueDate}</span>` : '',
+          task.description ? `<span class="description">${escapeHtml(task.description)}</span>` : '',
+          task.dueDate     ? `<span class="due-date ${dc}">Due ${escapeHtml(task.dueDate)}</span>` : '',
         ].filter(Boolean).join('<span style="color:#e2e8f0">·</span>');
         const meta = chips + (chips && metaText ? '<span style="color:#e2e8f0;margin:0 0.15rem">·</span>' : '') + metaText;
         return `
@@ -650,7 +649,7 @@
           ondrop="onDrop(event)">
           <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask('${task._id}', this.checked)">
           <div class="task-info">
-            <h3 class="editable-title" onclick="startEdit('${task._id}', this)" title="Click to edit">${task.title}</h3>
+            <h3 class="editable-title" onclick="startEdit('${task._id}', this)" title="Click to edit">${escapeHtml(task.title)}</h3>
             ${meta ? `<div class="task-meta">${meta}</div>` : ''}
           </div>
           <select class="priority ${task.priority}" onchange="updatePriority('${task._id}', this)">
@@ -696,7 +695,7 @@
 
       await fetch(`${API}/reorder`, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: jsonHeaders(),
         body: JSON.stringify({ ids: reordered.map(t => t._id) }),
       });
     }
@@ -714,7 +713,7 @@
         if (newTitle && newTitle !== original) {
           await fetch(`${API}/${id}`, {
             method: 'PUT',
-            headers: authHeaders(),
+            headers: jsonHeaders(),
             body: JSON.stringify({ title: newTitle }),
           });
           await loadTasks();
@@ -731,7 +730,7 @@
     }
 
     async function loadTasks() {
-      const res = await fetch(API, { headers: authHeaders() });
+      const res = await fetch(API);
       if (res.status === 401) { logout(); return; }
       allTasks = await res.json();
       renderTasks();
@@ -741,14 +740,14 @@
     async function toggleTask(id, completed) {
       await fetch(`${API}/${id}`, {
         method: 'PUT',
-        headers: authHeaders(),
+        headers: jsonHeaders(),
         body: JSON.stringify({ completed }),
       });
       loadTasks();
     }
 
     async function deleteTask(id) {
-      await fetch(`${API}/${id}`, { method: 'DELETE', headers: authHeaders() });
+      await fetch(`${API}/${id}`, { method: 'DELETE' });
       loadTasks();
     }
 
@@ -757,7 +756,7 @@
       select.className = `priority ${priority}`;
       await fetch(`${API}/${id}`, {
         method: 'PUT',
-        headers: authHeaders(),
+        headers: jsonHeaders(),
         body: JSON.stringify({ priority }),
       });
     }
@@ -773,7 +772,7 @@
 
       const res = await fetch(API, {
         method: 'POST',
-        headers: authHeaders(),
+        headers: jsonHeaders(),
         body: JSON.stringify({ title, description, dueDate, priority, labels }),
       });
 
@@ -788,7 +787,15 @@
       loadTasks();
     });
 
-    if (localStorage.getItem('token')) showApp();
+    fetch(API).then(res => {
+      if (res.ok) return res.json().then(tasks => {
+        allTasks = tasks;
+        document.getElementById('auth-panel').hidden = true;
+        document.getElementById('app').hidden = false;
+        renderTasks();
+        renderLabelFilter();
+      });
+    });
   </script>
 </body>
 </html>
