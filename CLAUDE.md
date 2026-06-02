@@ -25,3 +25,15 @@ Three-layer Express app:
 `src/index.js` wires everything together: loads `.env`, mounts the router at `/api/tasks`, and starts the server.
 
 Tests in `tests/` import the service layer directly and run against the in-memory store — no server or database needed.
+
+## gstack
+
+Use `/browse` for all web browsing tasks. Never use `mcp__claude-in-chrome__*` tools.
+
+Install for new teammates:
+```bash
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup
+```
+
+Available gstack skills:
+`/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/design-html`, `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`, `/browse`, `/connect-chrome`, `/qa`, `/qa-only`, `/design-review`, `/setup-browser-cookies`, `/setup-deploy`, `/setup-gbrain`, `/retro`, `/investigate`, `/document-release`, `/document-generate`, `/codex`, `/cso`, `/autoplan`, `/plan-devex-review`, `/devex-review`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`, `/learn`
