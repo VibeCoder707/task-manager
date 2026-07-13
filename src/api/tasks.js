@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote } = require('../utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity } = require('../utils/taskService');
 const authMiddleware = require('../middleware/auth');
 
 const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels'];
@@ -177,6 +177,16 @@ router.delete('/:id/notes/:noteId', async (req, res, next) => {
   try {
     const task = await deleteNote(req.params.id, req.params.noteId, req.userId);
     res.json(task);
+  } catch (err) {
+    if (err.message === 'Task not found') return res.status(404).json({ error: err.message });
+    next(err);
+  }
+});
+
+router.get('/:id/activity', async (req, res, next) => {
+  try {
+    const activity = await getTaskActivity(req.params.id, req.userId);
+    res.json({ activity });
   } catch (err) {
     if (err.message === 'Task not found') return res.status(404).json({ error: err.message });
     next(err);

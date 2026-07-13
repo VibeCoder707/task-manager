@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote } = require('../src/utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity } = require('../src/utils/taskService');
 
 const userId = new mongoose.Types.ObjectId();
 
@@ -343,5 +343,56 @@ describe('pagination', () => {
     const { data, total } = await getAllTasks(userId, { page: 99, limit: 20 });
     expect(data).toHaveLength(0);
     expect(total).toBe(1);
+  });
+});
+
+describe('activity log', () => {
+  test('created task has a "created" entry', async () => {
+    const task = await createTask({ title: 'New task', userId });
+    const activity = await getTaskActivity(task._id, userId);
+    expect(activity).toHaveLength(1);
+    expect(activity[0].field).toBe('created');
+    expect(activity[0].changedAt).toBeDefined();
+  });
+
+  test('updating completed logs old and new values', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    await updateTask(task._id, { completed: true }, userId);
+    const activity = await getTaskActivity(task._id, userId);
+    const entry = activity.find(e => e.field === 'completed');
+    expect(entry.oldValue).toBe(false);
+    expect(entry.newValue).toBe(true);
+  });
+
+  test('updating a field to the same value produces no new log entry', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    await updateTask(task._id, { priority: 'medium' }, userId);
+    const activity = await getTaskActivity(task._id, userId);
+    expect(activity.every(e => e.field !== 'priority')).toBe(true);
+  });
+
+  test('adding a note logs note_added with the text', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    await addNote(task._id, 'My note text', userId);
+    const activity = await getTaskActivity(task._id, userId);
+    const entry = activity.find(e => e.field === 'note_added');
+    expect(entry).toBeDefined();
+    expect(entry.newValue).toBe('My note text');
+  });
+
+  test('deleting a note logs note_deleted with the old text', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    const withNote = await addNote(task._id, 'To be deleted', userId);
+    await deleteNote(task._id, withNote.notes[0]._id, userId);
+    const activity = await getTaskActivity(task._id, userId);
+    const entry = activity.find(e => e.field === 'note_deleted');
+    expect(entry).toBeDefined();
+    expect(entry.oldValue).toBe('To be deleted');
+  });
+
+  test('another user cannot read activity', async () => {
+    const otherUserId = new mongoose.Types.ObjectId();
+    const task = await createTask({ title: 'Task', userId });
+    await expect(getTaskActivity(task._id, otherUserId)).rejects.toThrow('Task not found');
   });
 });

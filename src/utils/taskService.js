@@ -21,13 +21,25 @@ async function getAllTasks(userId, { completed, priority, label, search, sortBy,
   return { data, total };
 }
 
+const TRACKED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels'];
+
 async function createTask({ title, description, dueDate, priority, labels, userId }) {
-  return Task.create({ title, description, dueDate, priority, labels, userId });
+  return Task.create({ title, description, dueDate, priority, labels, userId, activity: [{ field: 'created' }] });
 }
 
 async function updateTask(id, updates, userId) {
-  const task = await Task.findOneAndUpdate({ _id: id, userId }, updates, { new: true });
-  if (!task) throw new Error('Task not found');
+  const old = await Task.findOne({ _id: id, userId });
+  if (!old) throw new Error('Task not found');
+
+  const entries = Object.keys(updates)
+    .filter(f => TRACKED_FIELDS.includes(f) && String(old[f]) !== String(updates[f]))
+    .map(f => ({ field: f, oldValue: old[f], newValue: updates[f] }));
+
+  const task = await Task.findOneAndUpdate(
+    { _id: id, userId },
+    { ...updates, $push: { activity: { $each: entries, $slice: -100 } } },
+    { new: true }
+  );
   return task;
 }
 
@@ -89,7 +101,10 @@ async function getTaskStats(userId) {
 async function addNote(taskId, text, userId) {
   const task = await Task.findOneAndUpdate(
     { _id: taskId, userId, 'notes.49': { $exists: false } },
-    { $push: { notes: { text } } },
+    { $push: {
+      notes: { text },
+      activity: { $each: [{ field: 'note_added', newValue: text }], $slice: -100 },
+    }},
     { new: true }
   );
   if (!task) throw new Error('Task not found or note limit reached');
@@ -97,13 +112,23 @@ async function addNote(taskId, text, userId) {
 }
 
 async function deleteNote(taskId, noteId, userId) {
+  const old = await Task.findOne({ _id: taskId, userId });
+  if (!old) throw new Error('Task not found');
+  const note = old.notes.id(noteId);
+  const activityEntry = { field: 'note_deleted', oldValue: note ? note.text : null };
   const task = await Task.findOneAndUpdate(
     { _id: taskId, userId },
-    { $pull: { notes: { _id: noteId } } },
+    { $pull: { notes: { _id: noteId } },
+      $push: { activity: { $each: [activityEntry], $slice: -100 } } },
     { new: true }
   );
-  if (!task) throw new Error('Task not found');
   return task;
 }
 
-module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote };
+async function getTaskActivity(taskId, userId) {
+  const task = await Task.findOne({ _id: taskId, userId }, 'activity');
+  if (!task) throw new Error('Task not found');
+  return task.activity;
+}
+
+module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity };

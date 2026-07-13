@@ -16,6 +16,15 @@ const taskSchema = new mongoose.Schema({
     }],
     default: [],
   },
+  activity: {
+    type: [{
+      field:     { type: String, required: true },
+      oldValue:  { type: mongoose.Schema.Types.Mixed, default: null },
+      newValue:  { type: mongoose.Schema.Types.Mixed, default: null },
+      changedAt: { type: Date, default: Date.now },
+    }],
+    default: [],
+  },
 }, { toJSON: { virtuals: true } });
 
 taskSchema.virtual('overdue').get(function () {
