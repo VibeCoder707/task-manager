@@ -449,6 +449,64 @@
     /* ── Drag ───────────────────────────────────────────────────────────── */
     .card.drag-over { border-top: 2px solid var(--teal); }
 
+    /* ── Bulk select ────────────────────────────────────────────────────── */
+    .card--selected { background: var(--teal-light); border-left-color: var(--teal) !important; }
+
+    .select-checkbox {
+      width: 1.1rem;
+      height: 1.1rem;
+      border: 2px solid var(--gray-200);
+      border-radius: 4px;
+      background: #fff;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: #fff;
+      transition: background .15s, border-color .15s;
+    }
+
+    .select-checkbox.checked { background: var(--teal); border-color: var(--teal); }
+
+    .action-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--gray-900);
+      color: #fff;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      z-index: 40;
+      box-shadow: 0 -4px 16px rgba(0,0,0,.2);
+    }
+
+    .action-count {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-right: auto;
+    }
+
+    .btn-action {
+      padding: 0.4rem 0.875rem;
+      border-radius: 7px;
+      border: none;
+      font-size: 0.82rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+
+    .btn-action:hover { opacity: .85; }
+    .btn-action--ghost  { background: rgba(255,255,255,.12); color: #fff; }
+    .btn-action--teal   { background: var(--teal);  color: #fff; }
+    .btn-action--red    { background: var(--red);   color: #fff; }
+    .btn-action--cancel { background: transparent; color: rgba(255,255,255,.6); border: 1px solid rgba(255,255,255,.2); }
+
     /* ── Detail panel ───────────────────────────────────────────────────── */
     .overlay {
       display: none;
@@ -738,11 +796,21 @@
         <option value="low">Low</option>
       </select>
       <button class="btn-sort" id="sort-btn">Sort by due date</button>
+      <button class="btn-sort" id="select-btn">Select</button>
     </div>
 
     <!-- Task list -->
     <div id="task-list"></div>
   </main>
+
+  <!-- Bulk action bar -->
+  <div class="action-bar hidden" id="action-bar">
+    <span class="action-count" id="action-count">0 selected</span>
+    <button class="btn-action btn-action--ghost" id="select-all-btn">Select all</button>
+    <button class="btn-action btn-action--teal" id="bulk-complete-btn">Mark complete</button>
+    <button class="btn-action btn-action--red" id="bulk-delete-btn">Delete</button>
+    <button class="btn-action btn-action--cancel" id="cancel-select-btn">Cancel</button>
+  </div>
 
   <!-- Detail panel -->
   <div class="overlay" id="overlay"></div>
@@ -755,6 +823,8 @@ let tasks = [];
 let activeId = null;
 let sortState = 0; // 0=off 1=asc 2=desc
 let searchTimer = null;
+let selectMode = false;
+let selectedIds = new Set();
 
 const LABEL_PALETTE = [
   ['#f0fdf4','#15803d'], ['#eff6ff','#1d4ed8'], ['#fdf4ff','#7e22ce'],
@@ -833,20 +903,30 @@ function renderTasks() {
   const el = document.getElementById('task-list');
   if (!tasks.length) { el.innerHTML = '<p class="empty-state">No tasks here. Add one above!</p>'; return; }
   el.innerHTML = tasks.map(t => {
-    const dc    = dueCls(t.dueDate, t.completed);
+    const dc       = dueCls(t.dueDate, t.completed);
     const subDone  = (t.subtasks || []).filter(s => s.completed).length;
     const subTotal = (t.subtasks || []).length;
     const chips = (t.labels || []).map(l => {
       const [bg, fg] = labelColor(l);
       return `<span class="label-chip" style="background:${bg};color:${fg}">${esc(l)}</span>`;
     }).join('');
-    const dueLabel = t.dueDate ? `<span class="meta-due ${dc}">📅 ${t.dueDate}${dc === 'overdue' ? ' · OVERDUE' : ''}</span>` : '';
-    const subLabel = subTotal ? `<span class="sub-progress">☑ ${subDone}/${subTotal}</span>` : '';
+    const dueLabel  = t.dueDate ? `<span class="meta-due ${dc}">📅 ${t.dueDate}${dc === 'overdue' ? ' · OVERDUE' : ''}</span>` : '';
+    const subLabel  = subTotal ? `<span class="sub-progress">☑ ${subDone}/${subTotal}</span>` : '';
     const recurLabel = t.recurrence ? `<span class="recur-badge">🔁 ${t.recurrence}</span>` : '';
+    const isSelected = selectedIds.has(t._id);
+
+    const leftControl = selectMode
+      ? `<div class="select-checkbox ${isSelected ? 'checked' : ''}" data-action="select" data-id="${t._id}">${isSelected ? '✓' : ''}</div>`
+      : `<button class="check-btn ${t.completed ? 'checked' : ''}" data-action="toggle" data-id="${t._id}" data-done="${t.completed}">✓</button>`;
+
+    const rightControl = selectMode
+      ? ''
+      : `<button class="card-delete" data-action="delete" data-id="${t._id}">🗑</button>`;
+
     return `
-<div class="card priority-${t.priority} ${t.completed ? 'card--done' : ''} ${dc === 'overdue' ? 'card--overdue' : ''}"
-  data-id="${t._id}" draggable="true">
-  <button class="check-btn ${t.completed ? 'checked' : ''}" data-action="toggle" data-id="${t._id}" data-done="${t.completed}">✓</button>
+<div class="card priority-${t.priority} ${t.completed ? 'card--done' : ''} ${dc === 'overdue' && !selectMode ? 'card--overdue' : ''} ${isSelected ? 'card--selected' : ''}"
+  data-id="${t._id}" draggable="${!selectMode}">
+  ${leftControl}
   <div class="card-body">
     <div class="card-title">${esc(t.title)}</div>
     <div class="card-meta">
@@ -854,17 +934,21 @@ function renderTasks() {
       ${dueLabel}${chips}${subLabel}${recurLabel}
     </div>
   </div>
-  <button class="card-delete" data-action="delete" data-id="${t._id}">🗑</button>
+  ${rightControl}
 </div>`;
   }).join('');
 }
 
 // ── Event delegation — task list ──────────────────────────────────────────
 document.getElementById('task-list').addEventListener('click', async e => {
+  const select = e.target.closest('[data-action="select"]');
   const toggle = e.target.closest('[data-action="toggle"]');
   const del    = e.target.closest('[data-action="delete"]');
   const card   = e.target.closest('.card');
-  if (toggle) {
+  if (select) {
+    e.stopPropagation();
+    toggleCardSelection(select.dataset.id);
+  } else if (toggle) {
     e.stopPropagation();
     await api('PUT', `/tasks/${toggle.dataset.id}`, { completed: toggle.dataset.done !== 'true' });
     await refresh();
@@ -875,9 +959,75 @@ document.getElementById('task-list').addEventListener('click', async e => {
     await api('DELETE', `/tasks/${del.dataset.id}`);
     await refresh();
   } else if (card) {
-    openDetail(card.dataset.id);
+    if (selectMode) {
+      toggleCardSelection(card.dataset.id);
+    } else {
+      openDetail(card.dataset.id);
+    }
   }
 });
+
+// ── Bulk select ────────────────────────────────────────────────────────────
+function toggleSelectMode() {
+  selectMode = !selectMode;
+  selectedIds.clear();
+  if (selectMode) {
+    closeDetail();
+  }
+  const btn = document.getElementById('select-btn');
+  btn.textContent = selectMode ? 'Cancel select' : 'Select';
+  btn.classList.toggle('active', selectMode);
+  updateActionBar();
+  renderTasks();
+}
+
+function toggleCardSelection(id) {
+  if (selectedIds.has(id)) {
+    selectedIds.delete(id);
+  } else {
+    selectedIds.add(id);
+  }
+  // Update just this card's visual without full re-render
+  const card = document.querySelector(`.card[data-id="${id}"]`);
+  if (card) {
+    const checked = selectedIds.has(id);
+    card.classList.toggle('card--selected', checked);
+    const box = card.querySelector('.select-checkbox');
+    if (box) { box.classList.toggle('checked', checked); box.textContent = checked ? '✓' : ''; }
+  }
+  updateActionBar();
+}
+
+function updateActionBar() {
+  const bar = document.getElementById('action-bar');
+  const n = selectedIds.size;
+  bar.classList.toggle('hidden', n === 0 && !selectMode);
+  document.getElementById('action-count').textContent =
+    n === 0 ? 'Nothing selected' : `${n} task${n === 1 ? '' : 's'} selected`;
+}
+
+async function bulkAction(action) {
+  const ids = [...selectedIds];
+  if (!ids.length) return;
+  if (action === 'delete' && !confirm(`Delete ${ids.length} task${ids.length === 1 ? '' : 's'}?`)) return;
+  await api('PATCH', '/tasks/bulk', { ids, action });
+  selectedIds.clear();
+  selectMode = false;
+  document.getElementById('select-btn').textContent = 'Select';
+  document.getElementById('select-btn').classList.remove('active');
+  document.getElementById('action-bar').classList.add('hidden');
+  await refresh();
+}
+
+document.getElementById('select-btn').addEventListener('click', toggleSelectMode);
+document.getElementById('cancel-select-btn').addEventListener('click', toggleSelectMode);
+document.getElementById('select-all-btn').addEventListener('click', () => {
+  tasks.forEach(t => selectedIds.add(t._id));
+  updateActionBar();
+  renderTasks();
+});
+document.getElementById('bulk-complete-btn').addEventListener('click', () => bulkAction('complete'));
+document.getElementById('bulk-delete-btn').addEventListener('click',   () => bulkAction('delete'));
 
 // ── Drag-to-reorder ────────────────────────────────────────────────────────
 let dragId = null;
@@ -933,11 +1083,11 @@ document.getElementById('add-form').addEventListener('submit', async e => {
 // ── Filters ────────────────────────────────────────────────────────────────
 document.getElementById('search-input').addEventListener('input', () => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(loadTasks, 300);
+  searchTimer = setTimeout(() => { if (selectMode) toggleSelectMode(); loadTasks(); }, 300);
 });
 
-document.getElementById('filter-completed').addEventListener('change', loadTasks);
-document.getElementById('filter-priority').addEventListener('change', loadTasks);
+document.getElementById('filter-completed').addEventListener('change', () => { if (selectMode) toggleSelectMode(); loadTasks(); });
+document.getElementById('filter-priority').addEventListener('change',  () => { if (selectMode) toggleSelectMode(); loadTasks(); });
 
 document.getElementById('sort-btn').addEventListener('click', () => {
   sortState = (sortState + 1) % 3;
