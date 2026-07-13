@@ -1320,6 +1320,35 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   showAuth();
 });
 
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement?.tagName;
+  const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+  if (e.key === 'Escape') {
+    if (activeId)   { closeDetail(); return; }
+    if (selectMode) { toggleSelectMode(); return; }
+    if (document.activeElement) document.activeElement.blur();
+    return;
+  }
+
+  if (typing) return;
+
+  if (e.key === 'n') {
+    e.preventDefault();
+    document.getElementById('new-title').focus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (e.key === '/') {
+    e.preventDefault();
+    document.getElementById('search-input').focus();
+  }
+  if (e.key === 's') {
+    e.preventDefault();
+    toggleSelectMode();
+  }
+});
+
 // ── Boot ──────────────────────────────────────────────────────────────────
 (async () => {
   const res = await fetch('/api/tasks?limit=1');
