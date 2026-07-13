@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats } = require('../utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote } = require('../utils/taskService');
 const authMiddleware = require('../middleware/auth');
 
 const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels'];
@@ -147,6 +147,32 @@ router.delete('/:id', async (req, res, next) => {
     await deleteTask(req.params.id, req.userId);
     res.status(204).send();
   } catch (err) { next(err); }
+});
+
+router.post('/:id/notes', async (req, res, next) => {
+  try {
+    const { text } = req.body;
+    if (!text || typeof text !== 'string' || text.trim() === '')
+      return res.status(400).json({ error: 'text is required' });
+    if (text.trim().length > 500)
+      return res.status(400).json({ error: 'text must be at most 500 characters' });
+    const task = await addNote(req.params.id, text.trim(), req.userId);
+    res.status(201).json(task);
+  } catch (err) {
+    if (err.message === 'Task not found or note limit reached')
+      return res.status(404).json({ error: err.message });
+    next(err);
+  }
+});
+
+router.delete('/:id/notes/:noteId', async (req, res, next) => {
+  try {
+    const task = await deleteNote(req.params.id, req.params.noteId, req.userId);
+    res.json(task);
+  } catch (err) {
+    if (err.message === 'Task not found') return res.status(404).json({ error: err.message });
+    next(err);
+  }
 });
 
 module.exports = router;

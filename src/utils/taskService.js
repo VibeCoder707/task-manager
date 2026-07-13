@@ -81,4 +81,24 @@ async function getTaskStats(userId) {
   };
 }
 
-module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats };
+async function addNote(taskId, text, userId) {
+  const task = await Task.findOneAndUpdate(
+    { _id: taskId, userId, 'notes.49': { $exists: false } },
+    { $push: { notes: { text } } },
+    { new: true }
+  );
+  if (!task) throw new Error('Task not found or note limit reached');
+  return task;
+}
+
+async function deleteNote(taskId, noteId, userId) {
+  const task = await Task.findOneAndUpdate(
+    { _id: taskId, userId },
+    { $pull: { notes: { _id: noteId } } },
+    { new: true }
+  );
+  if (!task) throw new Error('Task not found');
+  return task;
+}
+
+module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote };

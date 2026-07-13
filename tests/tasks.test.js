@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats } = require('../src/utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote } = require('../src/utils/taskService');
 
 const userId = new mongoose.Types.ObjectId();
 
@@ -243,5 +243,59 @@ describe('getTaskStats', () => {
     await createTask({ title: 'Theirs', userId: otherUserId });
     const stats = await getTaskStats(userId);
     expect(stats.total).toBe(1);
+  });
+});
+
+describe('notes', () => {
+  test('adds a note and returns updated task', async () => {
+    const task = await createTask({ title: 'Task with notes', userId });
+    const updated = await addNote(task._id, 'Check JWT expiry', userId);
+    expect(updated.notes).toHaveLength(1);
+    expect(updated.notes[0].text).toBe('Check JWT expiry');
+    expect(updated.notes[0].createdAt).toBeDefined();
+  });
+
+  test('note text is saved correctly', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    const updated = await addNote(task._id, 'My note', userId);
+    expect(updated.notes[0].text).toBe('My note');
+  });
+
+  test('multiple notes can be added', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    await addNote(task._id, 'First note', userId);
+    const updated = await addNote(task._id, 'Second note', userId);
+    expect(updated.notes).toHaveLength(2);
+  });
+
+  test('notes appear in getAllTasks response', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    await addNote(task._id, 'Visible note', userId);
+    const tasks = await getAllTasks(userId);
+    expect(tasks[0].notes[0].text).toBe('Visible note');
+  });
+
+  test('cannot add a note to another user\'s task', async () => {
+    const otherUserId = new mongoose.Types.ObjectId();
+    const task = await createTask({ title: 'Their task', userId: otherUserId });
+    await expect(addNote(task._id, 'Sneaky note', userId)).rejects.toThrow('Task not found or note limit reached');
+  });
+
+  test('deletes a note and returns updated task', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    const withNote = await addNote(task._id, 'Delete me', userId);
+    const noteId = withNote.notes[0]._id;
+    const updated = await deleteNote(task._id, noteId, userId);
+    expect(updated.notes).toHaveLength(0);
+  });
+
+  test('deleting a note does not affect other notes', async () => {
+    const task = await createTask({ title: 'Task', userId });
+    await addNote(task._id, 'Keep me', userId);
+    const withSecond = await addNote(task._id, 'Delete me', userId);
+    const noteToDelete = withSecond.notes[1]._id;
+    const updated = await deleteNote(task._id, noteToDelete, userId);
+    expect(updated.notes).toHaveLength(1);
+    expect(updated.notes[0].text).toBe('Keep me');
   });
 });

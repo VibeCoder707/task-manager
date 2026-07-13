@@ -9,6 +9,13 @@ const taskSchema = new mongoose.Schema({
   priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
   labels: { type: [String], default: [] },
   order: { type: Number, default: 0 },
+  notes: {
+    type: [{
+      text: { type: String, required: true },
+      createdAt: { type: Date, default: Date.now },
+    }],
+    default: [],
+  },
 }, { toJSON: { virtuals: true } });
 
 taskSchema.virtual('overdue').get(function () {
