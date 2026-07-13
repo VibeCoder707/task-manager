@@ -126,6 +126,10 @@ async function deleteNote(taskId, noteId, userId) {
   return task;
 }
 
+async function exportTasks(userId) {
+  return Task.find({ userId }).sort({ order: 1, _id: 1 });
+}
+
 async function getTaskActivity(taskId, userId) {
   const task = await Task.findOne({ _id: taskId, userId }, 'activity');
   if (!task) throw new Error('Task not found');
@@ -140,4 +144,4 @@ function nextDueDate(dueDate, recurrence) {
   return base.toISOString().slice(0, 10);
 }
 
-module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate };
+module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks };

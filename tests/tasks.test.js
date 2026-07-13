@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate } = require('../src/utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks } = require('../src/utils/taskService');
 
 const userId = new mongoose.Types.ObjectId();
 
@@ -411,6 +411,23 @@ describe('activity log', () => {
     const otherUserId = new mongoose.Types.ObjectId();
     const task = await createTask({ title: 'Task', userId });
     await expect(getTaskActivity(task._id, otherUserId)).rejects.toThrow('Task not found');
+  });
+});
+
+describe('exportTasks', () => {
+  test('returns all tasks for the user with no limit', async () => {
+    for (let i = 1; i <= 5; i++) await createTask({ title: `Export task ${i}`, userId });
+    const tasks = await exportTasks(userId);
+    expect(tasks.length).toBeGreaterThanOrEqual(5);
+    expect(tasks.every(t => String(t.userId) === String(userId))).toBe(true);
+  });
+
+  test('does not return another user\'s tasks', async () => {
+    const otherUserId = new mongoose.Types.ObjectId();
+    await createTask({ title: 'Mine', userId });
+    await createTask({ title: 'Theirs', userId: otherUserId });
+    const tasks = await exportTasks(userId);
+    expect(tasks.every(t => String(t.userId) === String(userId))).toBe(true);
   });
 });
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate } = require('../utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks } = require('../utils/taskService');
 const authMiddleware = require('../middleware/auth');
 
 const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels', 'recurrence'];
@@ -14,6 +14,42 @@ router.get('/stats', async (req, res, next) => {
   try {
     const stats = await getTaskStats(req.userId);
     res.json(stats);
+  } catch (err) { next(err); }
+});
+
+router.get('/export', async (req, res, next) => {
+  try {
+    const format = req.query.format ?? 'json';
+    if (!['json', 'csv'].includes(format))
+      return res.status(400).json({ error: 'format must be "json" or "csv"' });
+
+    const tasks = await exportTasks(req.userId);
+
+    if (format === 'csv') {
+      const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const header = 'id,title,description,dueDate,completed,priority,labels,recurrence,overdue';
+      const rows = tasks.map(t => {
+        const j = t.toJSON();
+        return [
+          t._id,
+          esc(t.title),
+          esc(t.description),
+          t.dueDate || '',
+          t.completed,
+          t.priority,
+          esc((t.labels || []).join(';')),
+          t.recurrence || '',
+          j.overdue,
+        ].join(',');
+      });
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="tasks.csv"');
+      return res.send([header, ...rows].join('\n'));
+    }
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="tasks.json"');
+    res.json(tasks);
   } catch (err) { next(err); }
 });
 
