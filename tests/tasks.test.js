@@ -34,9 +34,9 @@ test('only returns tasks for the correct user', async () => {
   const otherUserId = new mongoose.Types.ObjectId();
   await createTask({ title: 'My task', userId });
   await createTask({ title: 'Their task', userId: otherUserId });
-  const tasks = await getAllTasks(userId);
-  expect(tasks).toHaveLength(1);
-  expect(tasks[0].title).toBe('My task');
+  const { data } = await getAllTasks(userId);
+  expect(data).toHaveLength(1);
+  expect(data[0].title).toBe('My task');
 });
 
 describe('getAllTasks filters', () => {
@@ -44,49 +44,49 @@ describe('getAllTasks filters', () => {
     await createTask({ title: 'Done', userId });
     await updateTask((await createTask({ title: 'Done', userId }))._id, { completed: true }, userId);
     await createTask({ title: 'Pending', userId });
-    const tasks = await getAllTasks(userId, { completed: false });
-    expect(tasks.every(t => t.completed === false)).toBe(true);
+    const { data } = await getAllTasks(userId, { completed: false });
+    expect(data.every(t => t.completed === false)).toBe(true);
   });
 
   test('filters by completed=true', async () => {
     const t = await createTask({ title: 'Finish report', userId });
     await updateTask(t._id, { completed: true }, userId);
     await createTask({ title: 'Not done', userId });
-    const tasks = await getAllTasks(userId, { completed: true });
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].title).toBe('Finish report');
+    const { data } = await getAllTasks(userId, { completed: true });
+    expect(data).toHaveLength(1);
+    expect(data[0].title).toBe('Finish report');
   });
 
   test('filters by priority', async () => {
     await createTask({ title: 'Low task', priority: 'low', userId });
     await createTask({ title: 'High task', priority: 'high', userId });
-    const tasks = await getAllTasks(userId, { priority: 'high' });
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].title).toBe('High task');
+    const { data } = await getAllTasks(userId, { priority: 'high' });
+    expect(data).toHaveLength(1);
+    expect(data[0].title).toBe('High task');
   });
 
   test('filters by label', async () => {
     await createTask({ title: 'Work task', labels: ['work', 'urgent'], userId });
     await createTask({ title: 'Personal task', labels: ['personal'], userId });
-    const tasks = await getAllTasks(userId, { label: 'work' });
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].title).toBe('Work task');
+    const { data } = await getAllTasks(userId, { label: 'work' });
+    expect(data).toHaveLength(1);
+    expect(data[0].title).toBe('Work task');
   });
 
   test('searches title case-insensitively', async () => {
     await createTask({ title: 'Team Meeting notes', userId });
     await createTask({ title: 'Buy groceries', userId });
-    const tasks = await getAllTasks(userId, { search: 'meeting' });
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].title).toBe('Team Meeting notes');
+    const { data } = await getAllTasks(userId, { search: 'meeting' });
+    expect(data).toHaveLength(1);
+    expect(data[0].title).toBe('Team Meeting notes');
   });
 
   test('searches description', async () => {
     await createTask({ title: 'Task A', description: 'Discuss quarterly budget', userId });
     await createTask({ title: 'Task B', description: 'Nothing special', userId });
-    const tasks = await getAllTasks(userId, { search: 'quarterly' });
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].title).toBe('Task A');
+    const { data } = await getAllTasks(userId, { search: 'quarterly' });
+    expect(data).toHaveLength(1);
+    expect(data[0].title).toBe('Task A');
   });
 
   test('combines priority and completed filters', async () => {
@@ -94,17 +94,17 @@ describe('getAllTasks filters', () => {
     await updateTask((await createTask({ title: 'High done', priority: 'high', userId }))._id, { completed: true }, userId);
     await createTask({ title: 'High pending', priority: 'high', userId });
     await createTask({ title: 'Low pending', priority: 'low', userId });
-    const tasks = await getAllTasks(userId, { priority: 'high', completed: false });
-    expect(tasks.every(t => t.priority === 'high' && t.completed === false)).toBe(true);
+    const { data } = await getAllTasks(userId, { priority: 'high', completed: false });
+    expect(data.every(t => t.priority === 'high' && t.completed === false)).toBe(true);
   });
 
   test('never returns another user\'s tasks regardless of filters', async () => {
     const otherUserId = new mongoose.Types.ObjectId();
     await createTask({ title: 'My meeting', userId });
     await createTask({ title: 'Their meeting', userId: otherUserId });
-    const tasks = await getAllTasks(userId, { search: 'meeting' });
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].title).toBe('My meeting');
+    const { data } = await getAllTasks(userId, { search: 'meeting' });
+    expect(data).toHaveLength(1);
+    expect(data[0].title).toBe('My meeting');
   });
 });
 
@@ -137,8 +137,8 @@ describe('bulk actions', () => {
     const t2 = await createTask({ title: 'Task 2', userId });
     const count = await bulkCompleteTasks([t1._id, t2._id], userId);
     expect(count).toBe(2);
-    const tasks = await getAllTasks(userId, { completed: true });
-    expect(tasks.map(t => t.title)).toEqual(expect.arrayContaining(['Task 1', 'Task 2']));
+    const { data } = await getAllTasks(userId, { completed: true });
+    expect(data.map(t => t.title)).toEqual(expect.arrayContaining(['Task 1', 'Task 2']));
   });
 
   test('bulkCompleteTasks ignores IDs belonging to another user', async () => {
@@ -147,7 +147,7 @@ describe('bulk actions', () => {
     const theirs = await createTask({ title: 'Theirs', userId: otherUserId });
     const count = await bulkCompleteTasks([mine._id, theirs._id], userId);
     expect(count).toBe(1);
-    const theirTasks = await getAllTasks(otherUserId, { completed: true });
+    const { data: theirTasks } = await getAllTasks(otherUserId, { completed: true });
     expect(theirTasks).toHaveLength(0);
   });
 
@@ -156,7 +156,7 @@ describe('bulk actions', () => {
     const t2 = await createTask({ title: 'Delete me 2', userId });
     const count = await bulkDeleteTasks([t1._id, t2._id], userId);
     expect(count).toBe(2);
-    const remaining = await getAllTasks(userId);
+    const { data: remaining } = await getAllTasks(userId);
     expect(remaining.map(t => t.title)).not.toEqual(expect.arrayContaining(['Delete me 1', 'Delete me 2']));
   });
 
@@ -166,7 +166,7 @@ describe('bulk actions', () => {
     const theirs = await createTask({ title: 'Theirs', userId: otherUserId });
     const count = await bulkDeleteTasks([mine._id, theirs._id], userId);
     expect(count).toBe(1);
-    const theirTasks = await getAllTasks(otherUserId);
+    const { data: theirTasks } = await getAllTasks(otherUserId);
     expect(theirTasks).toHaveLength(1);
   });
 });
@@ -176,8 +176,8 @@ describe('sortBy=dueDate', () => {
     await createTask({ title: 'C', dueDate: '2026-12-01', userId });
     await createTask({ title: 'A', dueDate: '2026-01-01', userId });
     await createTask({ title: 'B', dueDate: '2026-06-15', userId });
-    const tasks = await getAllTasks(userId, { sortBy: 'dueDate' });
-    const titles = tasks.filter(t => t.dueDate).map(t => t.title);
+    const { data } = await getAllTasks(userId, { sortBy: 'dueDate' });
+    const titles = data.filter(t => t.dueDate).map(t => t.title);
     expect(titles).toEqual(['A', 'B', 'C']);
   });
 
@@ -185,8 +185,8 @@ describe('sortBy=dueDate', () => {
     await createTask({ title: 'C', dueDate: '2026-12-01', userId });
     await createTask({ title: 'A', dueDate: '2026-01-01', userId });
     await createTask({ title: 'B', dueDate: '2026-06-15', userId });
-    const tasks = await getAllTasks(userId, { sortBy: 'dueDate', order: 'desc' });
-    const titles = tasks.filter(t => t.dueDate).map(t => t.title);
+    const { data } = await getAllTasks(userId, { sortBy: 'dueDate', order: 'desc' });
+    const titles = data.filter(t => t.dueDate).map(t => t.title);
     expect(titles).toEqual(['C', 'B', 'A']);
   });
 
@@ -194,9 +194,9 @@ describe('sortBy=dueDate', () => {
     const t1 = await createTask({ title: 'First', dueDate: '2026-12-01', userId });
     const t2 = await createTask({ title: 'Second', dueDate: '2026-01-01', userId });
     await require('../src/utils/taskService').reorderTasks([t1._id, t2._id], userId);
-    const tasks = await getAllTasks(userId);
-    expect(tasks[0].title).toBe('First');
-    expect(tasks[1].title).toBe('Second');
+    const { data } = await getAllTasks(userId);
+    expect(data[0].title).toBe('First');
+    expect(data[1].title).toBe('Second');
   });
 });
 
@@ -271,8 +271,8 @@ describe('notes', () => {
   test('notes appear in getAllTasks response', async () => {
     const task = await createTask({ title: 'Task', userId });
     await addNote(task._id, 'Visible note', userId);
-    const tasks = await getAllTasks(userId);
-    expect(tasks[0].notes[0].text).toBe('Visible note');
+    const { data } = await getAllTasks(userId);
+    expect(data[0].notes[0].text).toBe('Visible note');
   });
 
   test('cannot add a note to another user\'s task', async () => {
@@ -297,5 +297,51 @@ describe('notes', () => {
     const updated = await deleteNote(task._id, noteToDelete, userId);
     expect(updated.notes).toHaveLength(1);
     expect(updated.notes[0].text).toBe('Keep me');
+  });
+});
+
+describe('pagination', () => {
+  test('returns first page with correct data and pagination meta', async () => {
+    for (let i = 1; i <= 5; i++) await createTask({ title: `Task ${i}`, userId });
+    const { data, total } = await getAllTasks(userId, { page: 1, limit: 3 });
+    expect(data).toHaveLength(3);
+    expect(total).toBe(5);
+  });
+
+  test('page=2 skips the first page of results', async () => {
+    for (let i = 1; i <= 5; i++) await createTask({ title: `Task ${i}`, userId });
+    const { data: page1 } = await getAllTasks(userId, { page: 1, limit: 3 });
+    const { data: page2 } = await getAllTasks(userId, { page: 2, limit: 3 });
+    const page1Ids = page1.map(t => String(t._id));
+    const page2Ids = page2.map(t => String(t._id));
+    expect(page2Ids.every(id => !page1Ids.includes(id))).toBe(true);
+  });
+
+  test('last page may have fewer items than limit', async () => {
+    for (let i = 1; i <= 5; i++) await createTask({ title: `Task ${i}`, userId });
+    const { data } = await getAllTasks(userId, { page: 2, limit: 3 });
+    expect(data).toHaveLength(2);
+  });
+
+  test('total reflects full count regardless of page', async () => {
+    for (let i = 1; i <= 5; i++) await createTask({ title: `Task ${i}`, userId });
+    const { total } = await getAllTasks(userId, { page: 2, limit: 3 });
+    expect(total).toBe(5);
+  });
+
+  test('pagination works alongside filters', async () => {
+    await createTask({ title: 'High 1', priority: 'high', userId });
+    await createTask({ title: 'High 2', priority: 'high', userId });
+    await createTask({ title: 'Low 1', priority: 'low', userId });
+    const { data, total } = await getAllTasks(userId, { priority: 'high', page: 1, limit: 1 });
+    expect(data).toHaveLength(1);
+    expect(total).toBe(2);
+  });
+
+  test('returns empty data array when page exceeds total', async () => {
+    await createTask({ title: 'Only task', userId });
+    const { data, total } = await getAllTasks(userId, { page: 99, limit: 20 });
+    expect(data).toHaveLength(0);
+    expect(total).toBe(1);
   });
 });

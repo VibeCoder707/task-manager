@@ -22,6 +22,11 @@ router.get('/', async (req, res, next) => {
     const filters = {};
     const { completed, priority, label, search, sortBy, order } = req.query;
 
+    const page  = parseInt(req.query.page  ?? '1',  10);
+    const limit = parseInt(req.query.limit ?? '20', 10);
+    if (!Number.isInteger(page)  || page  < 1)               return res.status(400).json({ error: 'page must be a positive integer' });
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) return res.status(400).json({ error: 'limit must be between 1 and 100' });
+
     if (sortBy !== undefined && sortBy !== 'dueDate')
       return res.status(400).json({ error: 'sortBy must be "dueDate"' });
     if (order !== undefined && !['asc', 'desc'].includes(order))
@@ -49,8 +54,11 @@ router.get('/', async (req, res, next) => {
       filters.search = search;
     }
 
-    const tasks = await getAllTasks(req.userId, filters);
-    res.json(tasks);
+    filters.page  = page;
+    filters.limit = limit;
+
+    const { data, total } = await getAllTasks(req.userId, filters);
+    res.json({ data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) { next(err); }
 });
 

@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const Task = require('../models/Task');
 
-async function getAllTasks(userId, { completed, priority, label, search, sortBy, order } = {}) {
+async function getAllTasks(userId, { completed, priority, label, search, sortBy, order, page = 1, limit = 20 } = {}) {
   const query = { userId };
   if (completed !== undefined) query.completed = completed;
   if (priority) query.priority = priority;
@@ -13,7 +13,12 @@ async function getAllTasks(userId, { completed, priority, label, search, sortBy,
   const sort = sortBy === 'dueDate'
     ? { dueDate: order === 'desc' ? -1 : 1, _id: 1 }
     : { order: 1, _id: 1 };
-  return Task.find(query).sort(sort);
+  const skip = (page - 1) * limit;
+  const [data, total] = await Promise.all([
+    Task.find(query).sort(sort).skip(skip).limit(limit),
+    Task.countDocuments(query),
+  ]);
+  return { data, total };
 }
 
 async function createTask({ title, description, dueDate, priority, labels, userId }) {
