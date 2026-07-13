@@ -106,6 +106,23 @@ describe('getAllTasks filters', () => {
     expect(data).toHaveLength(1);
     expect(data[0].title).toBe('My meeting');
   });
+
+  test('searches note text', async () => {
+    const task = await createTask({ title: 'API work', userId });
+    await addNote(task._id, 'Check rate limiting logic', userId);
+    await createTask({ title: 'Unrelated task', userId });
+    const { data } = await getAllTasks(userId, { search: 'rate limiting' });
+    expect(data).toHaveLength(1);
+    expect(data[0].title).toBe('API work');
+  });
+
+  test('note text search respects user isolation', async () => {
+    const otherUserId = new mongoose.Types.ObjectId();
+    const theirTask = await createTask({ title: 'Their task', userId: otherUserId });
+    await addNote(theirTask._id, 'secret keyword', otherUserId);
+    const { data } = await getAllTasks(userId, { search: 'secret keyword' });
+    expect(data).toHaveLength(0);
+  });
 });
 
 describe('overdue flag', () => {

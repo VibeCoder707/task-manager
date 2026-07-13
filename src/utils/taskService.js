@@ -9,6 +9,7 @@ async function getAllTasks(userId, { completed, priority, label, search, sortBy,
   if (search) query.$or = [
     { title: { $regex: search, $options: 'i' } },
     { description: { $regex: search, $options: 'i' } },
+    { 'notes.text': { $regex: search, $options: 'i' } },
   ];
   const sort = sortBy === 'dueDate'
     ? { dueDate: order === 'desc' ? -1 : 1, _id: 1 }
