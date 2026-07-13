@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity } = require('../utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate } = require('../utils/taskService');
 const authMiddleware = require('../middleware/auth');
 
-const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels'];
+const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels', 'recurrence'];
 const MAX_LENGTHS = { title: 200, description: 1000, dueDate: 10 };
 const MAX_LABELS = 20;
 const MAX_LABEL_LEN = 50;
@@ -146,7 +146,19 @@ router.put('/:id', async (req, res, next) => {
       }
     }
     const task = await updateTask(req.params.id, req.body, req.userId);
-    res.json(task);
+    let spawnedTask = null;
+    if (task.recurrence && task.completed && req.body.completed === true) {
+      spawnedTask = await createTask({
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        labels: task.labels,
+        recurrence: task.recurrence,
+        dueDate: nextDueDate(task.dueDate, task.recurrence),
+        userId: req.userId,
+      });
+    }
+    res.json({ ...task.toJSON(), nextTask: spawnedTask });
   } catch (err) { next(err); }
 });
 

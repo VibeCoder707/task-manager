@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity } = require('../src/utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate } = require('../src/utils/taskService');
 
 const userId = new mongoose.Types.ObjectId();
 
@@ -394,5 +394,38 @@ describe('activity log', () => {
     const otherUserId = new mongoose.Types.ObjectId();
     const task = await createTask({ title: 'Task', userId });
     await expect(getTaskActivity(task._id, otherUserId)).rejects.toThrow('Task not found');
+  });
+});
+
+describe('recurring tasks', () => {
+  test('creates a task with recurrence field', async () => {
+    const task = await createTask({ title: 'Weekly review', recurrence: 'weekly', userId });
+    expect(task.recurrence).toBe('weekly');
+  });
+
+  test('nextDueDate daily adds 1 day', () => {
+    expect(nextDueDate('2026-07-01', 'daily')).toBe('2026-07-02');
+  });
+
+  test('nextDueDate weekly adds 7 days', () => {
+    expect(nextDueDate('2026-07-01', 'weekly')).toBe('2026-07-08');
+  });
+
+  test('nextDueDate monthly adds 1 calendar month', () => {
+    expect(nextDueDate('2026-07-01', 'monthly')).toBe('2026-08-01');
+  });
+
+  test('nextDueDate with no dueDate returns a future date string', () => {
+    const result = nextDueDate('', 'daily');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result > new Date().toISOString().slice(0, 10)).toBe(true);
+  });
+
+  test('non-recurring task completion does not increase task count', async () => {
+    const task = await createTask({ title: 'One-off', userId });
+    const { total: before } = await getAllTasks(userId);
+    await updateTask(task._id, { completed: true }, userId);
+    const { total: after } = await getAllTasks(userId);
+    expect(after).toBe(before);
   });
 });

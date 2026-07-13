@@ -23,8 +23,8 @@ async function getAllTasks(userId, { completed, priority, label, search, sortBy,
 
 const TRACKED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels'];
 
-async function createTask({ title, description, dueDate, priority, labels, userId }) {
-  return Task.create({ title, description, dueDate, priority, labels, userId, activity: [{ field: 'created' }] });
+async function createTask({ title, description, dueDate, priority, labels, recurrence, userId }) {
+  return Task.create({ title, description, dueDate, priority, labels, recurrence, userId, activity: [{ field: 'created' }] });
 }
 
 async function updateTask(id, updates, userId) {
@@ -131,4 +131,12 @@ async function getTaskActivity(taskId, userId) {
   return task.activity;
 }
 
-module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity };
+function nextDueDate(dueDate, recurrence) {
+  const base = dueDate ? new Date(dueDate + 'T00:00:00Z') : new Date();
+  if (recurrence === 'daily')   base.setUTCDate(base.getUTCDate() + 1);
+  if (recurrence === 'weekly')  base.setUTCDate(base.getUTCDate() + 7);
+  if (recurrence === 'monthly') base.setUTCMonth(base.getUTCMonth() + 1);
+  return base.toISOString().slice(0, 10);
+}
+
+module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate };
