@@ -12,7 +12,27 @@ router.use(authMiddleware);
 
 router.get('/', async (req, res, next) => {
   try {
-    const tasks = await getAllTasks(req.userId);
+    const filters = {};
+    const { completed, priority, label, search } = req.query;
+
+    if (completed !== undefined) {
+      if (completed !== 'true' && completed !== 'false')
+        return res.status(400).json({ error: 'completed must be "true" or "false"' });
+      filters.completed = completed === 'true';
+    }
+    if (priority !== undefined) {
+      if (!['low', 'medium', 'high'].includes(priority))
+        return res.status(400).json({ error: 'priority must be low, medium, or high' });
+      filters.priority = priority;
+    }
+    if (label !== undefined) filters.label = label;
+    if (search !== undefined) {
+      if (search.length > 200)
+        return res.status(400).json({ error: 'search must be at most 200 characters' });
+      filters.search = search;
+    }
+
+    const tasks = await getAllTasks(req.userId, filters);
     res.json(tasks);
   } catch (err) { next(err); }
 });
