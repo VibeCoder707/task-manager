@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks } = require('../src/utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks, addSubtask, updateSubtask, deleteSubtask } = require('../src/utils/taskService');
 
 const userId = new mongoose.Types.ObjectId();
 
@@ -411,6 +411,88 @@ describe('activity log', () => {
     const otherUserId = new mongoose.Types.ObjectId();
     const task = await createTask({ title: 'Task', userId });
     await expect(getTaskActivity(task._id, otherUserId)).rejects.toThrow('Task not found');
+  });
+});
+
+describe('subtasks', () => {
+  test('adds a subtask and returns it in the subtasks array', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    const updated = await addSubtask(task._id, 'Step one', userId);
+    expect(updated.subtasks).toHaveLength(1);
+    expect(updated.subtasks[0].title).toBe('Step one');
+    expect(updated.subtasks[0].completed).toBe(false);
+  });
+
+  test('multiple subtasks can be added', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    await addSubtask(task._id, 'Step one', userId);
+    const updated = await addSubtask(task._id, 'Step two', userId);
+    expect(updated.subtasks).toHaveLength(2);
+  });
+
+  test('cannot add a subtask to another user\'s task', async () => {
+    const otherUserId = new mongoose.Types.ObjectId();
+    const task = await createTask({ title: 'Their task', userId: otherUserId });
+    await expect(addSubtask(task._id, 'Sneaky subtask', userId)).rejects.toThrow('Task not found or subtask limit reached');
+  });
+
+  test('updateSubtask toggles completed to true', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    const withSub = await addSubtask(task._id, 'Do this', userId);
+    const subId = withSub.subtasks[0]._id;
+    const updated = await updateSubtask(task._id, subId, { completed: true }, userId);
+    expect(updated.subtasks[0].completed).toBe(true);
+  });
+
+  test('updateSubtask reopens a completed subtask', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    const withSub = await addSubtask(task._id, 'Do this', userId);
+    const subId = withSub.subtasks[0]._id;
+    await updateSubtask(task._id, subId, { completed: true }, userId);
+    const updated = await updateSubtask(task._id, subId, { completed: false }, userId);
+    expect(updated.subtasks[0].completed).toBe(false);
+  });
+
+  test('updateSubtask renames the title', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    const withSub = await addSubtask(task._id, 'Old title', userId);
+    const subId = withSub.subtasks[0]._id;
+    const updated = await updateSubtask(task._id, subId, { title: 'New title' }, userId);
+    expect(updated.subtasks[0].title).toBe('New title');
+  });
+
+  test('updateSubtask throws when subtask does not exist', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    const fakeId = new mongoose.Types.ObjectId();
+    await expect(updateSubtask(task._id, fakeId, { completed: true }, userId)).rejects.toThrow('Subtask not found');
+  });
+
+  test('deleteSubtask removes it without affecting other subtasks', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    await addSubtask(task._id, 'Keep me', userId);
+    const withSecond = await addSubtask(task._id, 'Delete me', userId);
+    const subToDelete = withSecond.subtasks[1]._id;
+    const updated = await deleteSubtask(task._id, subToDelete, userId);
+    expect(updated.subtasks).toHaveLength(1);
+    expect(updated.subtasks[0].title).toBe('Keep me');
+  });
+
+  test('subtask_added and subtask_completed appear in activity log', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    const withSub = await addSubtask(task._id, 'My step', userId);
+    const subId = withSub.subtasks[0]._id;
+    await updateSubtask(task._id, subId, { completed: true }, userId);
+    const activity = await getTaskActivity(task._id, userId);
+    expect(activity.some(e => e.field === 'subtask_added')).toBe(true);
+    expect(activity.some(e => e.field === 'subtask_completed')).toBe(true);
+  });
+
+  test('subtask_deleted appears in activity log', async () => {
+    const task = await createTask({ title: 'Parent task', userId });
+    const withSub = await addSubtask(task._id, 'To delete', userId);
+    await deleteSubtask(task._id, withSub.subtasks[0]._id, userId);
+    const activity = await getTaskActivity(task._id, userId);
+    expect(activity.some(e => e.field === 'subtask_deleted' && e.oldValue === 'To delete')).toBe(true);
   });
 });
 

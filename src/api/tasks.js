@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks } = require('../utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks, addSubtask, updateSubtask, deleteSubtask } = require('../utils/taskService');
 const authMiddleware = require('../middleware/auth');
 
 const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels', 'recurrence'];
@@ -206,6 +206,57 @@ router.delete('/:id', async (req, res, next) => {
     await deleteTask(req.params.id, req.userId);
     res.status(204).send();
   } catch (err) { next(err); }
+});
+
+router.post('/:id/subtasks', async (req, res, next) => {
+  try {
+    const { title } = req.body;
+    if (!title || typeof title !== 'string' || title.trim() === '')
+      return res.status(400).json({ error: 'title is required' });
+    if (title.trim().length > 200)
+      return res.status(400).json({ error: 'title must be at most 200 characters' });
+    const task = await addSubtask(req.params.id, title.trim(), req.userId);
+    res.status(201).json(task);
+  } catch (err) {
+    if (err.message === 'Task not found or subtask limit reached')
+      return res.status(404).json({ error: err.message });
+    next(err);
+  }
+});
+
+router.patch('/:id/subtasks/:subtaskId', async (req, res, next) => {
+  try {
+    const { title, completed } = req.body;
+    if (title === undefined && completed === undefined)
+      return res.status(400).json({ error: 'request body must include title or completed' });
+    if (title !== undefined) {
+      if (typeof title !== 'string' || title.trim() === '')
+        return res.status(400).json({ error: 'title cannot be empty' });
+      if (title.trim().length > 200)
+        return res.status(400).json({ error: 'title must be at most 200 characters' });
+    }
+    if (completed !== undefined && typeof completed !== 'boolean')
+      return res.status(400).json({ error: 'completed must be a boolean' });
+    const updates = {};
+    if (title !== undefined) updates.title = title.trim();
+    if (completed !== undefined) updates.completed = completed;
+    const task = await updateSubtask(req.params.id, req.params.subtaskId, updates, req.userId);
+    res.json(task);
+  } catch (err) {
+    if (err.message === 'Task not found' || err.message === 'Subtask not found')
+      return res.status(404).json({ error: err.message });
+    next(err);
+  }
+});
+
+router.delete('/:id/subtasks/:subtaskId', async (req, res, next) => {
+  try {
+    const task = await deleteSubtask(req.params.id, req.params.subtaskId, req.userId);
+    res.json(task);
+  } catch (err) {
+    if (err.message === 'Task not found') return res.status(404).json({ error: err.message });
+    next(err);
+  }
 });
 
 router.post('/:id/notes', async (req, res, next) => {

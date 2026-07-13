@@ -126,6 +126,51 @@ async function deleteNote(taskId, noteId, userId) {
   return task;
 }
 
+async function addSubtask(taskId, title, userId) {
+  const task = await Task.findOneAndUpdate(
+    { _id: taskId, userId, 'subtasks.49': { $exists: false } },
+    { $push: {
+      subtasks: { title },
+      activity: { $each: [{ field: 'subtask_added', newValue: title }], $slice: -100 },
+    }},
+    { new: true }
+  );
+  if (!task) throw new Error('Task not found or subtask limit reached');
+  return task;
+}
+
+async function updateSubtask(taskId, subtaskId, updates, userId) {
+  const old = await Task.findOne({ _id: taskId, userId });
+  if (!old) throw new Error('Task not found');
+  const sub = old.subtasks.id(subtaskId);
+  if (!sub) throw new Error('Subtask not found');
+  const set = {};
+  if (updates.title !== undefined)     set['subtasks.$.title']     = updates.title;
+  if (updates.completed !== undefined) set['subtasks.$.completed'] = updates.completed;
+  const activityField = updates.completed === true  ? 'subtask_completed'
+                      : updates.completed === false ? 'subtask_reopened' : null;
+  const activityEntry = activityField ? [{ field: activityField, newValue: sub.title }] : [];
+  const task = await Task.findOneAndUpdate(
+    { _id: taskId, userId, 'subtasks._id': subtaskId },
+    { $set: set, $push: { activity: { $each: activityEntry, $slice: -100 } } },
+    { new: true }
+  );
+  return task;
+}
+
+async function deleteSubtask(taskId, subtaskId, userId) {
+  const old = await Task.findOne({ _id: taskId, userId });
+  if (!old) throw new Error('Task not found');
+  const sub = old.subtasks.id(subtaskId);
+  const task = await Task.findOneAndUpdate(
+    { _id: taskId, userId },
+    { $pull: { subtasks: { _id: subtaskId } },
+      $push: { activity: { $each: [{ field: 'subtask_deleted', oldValue: sub ? sub.title : null }], $slice: -100 } } },
+    { new: true }
+  );
+  return task;
+}
+
 async function exportTasks(userId) {
   return Task.find({ userId }).sort({ order: 1, _id: 1 });
 }
@@ -144,4 +189,4 @@ function nextDueDate(dueDate, recurrence) {
   return base.toISOString().slice(0, 10);
 }
 
-module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks };
+module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats, addNote, deleteNote, getTaskActivity, nextDueDate, exportTasks, addSubtask, updateSubtask, deleteSubtask };

@@ -10,6 +10,13 @@ const taskSchema = new mongoose.Schema({
   labels: { type: [String], default: [] },
   order: { type: Number, default: 0 },
   recurrence: { type: String, enum: ['daily', 'weekly', 'monthly', null], default: null },
+  subtasks: {
+    type: [{
+      title:     { type: String, required: true },
+      completed: { type: Boolean, default: false },
+    }],
+    default: [],
+  },
   notes: {
     type: [{
       text: { type: String, required: true },
