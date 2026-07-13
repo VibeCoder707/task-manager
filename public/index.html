@@ -29,9 +29,27 @@
       --gray-400:    #94a3b8;
       --gray-500:    #64748b;
       --gray-900:    #0f172a;
+      --surface:     #fff;
       --radius:      10px;
       --shadow-sm:   0 1px 2px rgba(0,0,0,.06);
       --shadow:      0 2px 8px rgba(0,0,0,.09);
+    }
+
+    [data-theme="dark"] {
+      --surface:      #1e293b;
+      --gray-50:      #0f172a;
+      --gray-100:     #1e293b;
+      --gray-200:     #334155;
+      --gray-400:     #94a3b8;
+      --gray-500:     #cbd5e1;
+      --gray-900:     #f1f5f9;
+      --red-light:    rgba(239,68,68,.15);
+      --orange-light: rgba(249,115,22,.15);
+      --amber-light:  rgba(217,119,6,.15);
+      --green-light:  rgba(22,163,74,.15);
+      --teal-light:   rgba(13,148,136,.2);
+      --shadow-sm:    0 1px 2px rgba(0,0,0,.4);
+      --shadow:       0 2px 8px rgba(0,0,0,.5);
     }
 
     body {
@@ -58,7 +76,7 @@
     .auth-card {
       width: 100%;
       max-width: 380px;
-      background: #fff;
+      background: var(--surface);
       border: 1px solid var(--gray-200);
       border-radius: 16px;
       padding: 2.5rem 2rem;
@@ -119,7 +137,7 @@
       font-size: 0.9rem;
       font-family: inherit;
       color: var(--gray-900);
-      background: #fff;
+      background: var(--surface);
       transition: border-color .15s, box-shadow .15s;
       outline: none;
     }
@@ -160,7 +178,7 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: #fff;
+      background: var(--surface);
       border-bottom: 1px solid var(--gray-200);
       padding: 0 1.5rem;
       display: flex;
@@ -202,7 +220,7 @@
 
     /* ── Add task form ──────────────────────────────────────────────────── */
     .add-form {
-      background: #fff;
+      background: var(--surface);
       border: 1px solid var(--gray-200);
       border-radius: var(--radius);
       padding: 0.875rem 1rem;
@@ -293,7 +311,7 @@
       font-size: 0.85rem;
       font-family: inherit;
       outline: none;
-      background: #fff;
+      background: var(--surface);
       color: var(--gray-900);
       transition: border-color .15s, box-shadow .15s;
     }
@@ -309,7 +327,7 @@
       border-radius: 7px;
       font-size: 0.82rem;
       font-family: inherit;
-      background: #fff;
+      background: var(--surface);
       color: var(--gray-500);
       cursor: pointer;
       outline: none;
@@ -321,7 +339,7 @@
       border-radius: 7px;
       font-size: 0.82rem;
       font-family: inherit;
-      background: #fff;
+      background: var(--surface);
       color: var(--gray-500);
       cursor: pointer;
       white-space: nowrap;
@@ -334,7 +352,7 @@
     #task-list { display: grid; gap: 0.5rem; }
 
     .card {
-      background: #fff;
+      background: var(--surface);
       border: 1px solid var(--gray-200);
       border-left: 3px solid var(--gray-200);
       border-radius: var(--radius);
@@ -363,7 +381,7 @@
       height: 1.1rem;
       border-radius: 50%;
       border: 2px solid var(--gray-200);
-      background: #fff;
+      background: var(--surface);
       cursor: pointer;
       flex-shrink: 0;
       display: flex;
@@ -457,7 +475,7 @@
       height: 1.1rem;
       border: 2px solid var(--gray-200);
       border-radius: 4px;
-      background: #fff;
+      background: var(--surface);
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -474,7 +492,7 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: var(--gray-900);
+      background: #0f172a;
       color: #fff;
       padding: 0.75rem 1.5rem;
       display: flex;
@@ -525,7 +543,7 @@
       bottom: 0;
       width: 400px;
       max-width: 100vw;
-      background: #fff;
+      background: var(--surface);
       border-left: 1px solid var(--gray-200);
       box-shadow: -4px 0 20px rgba(0,0,0,.1);
       z-index: 30;
@@ -544,7 +562,7 @@
       border-bottom: 1px solid var(--gray-200);
       position: sticky;
       top: 0;
-      background: #fff;
+      background: var(--surface);
       z-index: 1;
     }
 
@@ -586,7 +604,7 @@
       font-size: 0.875rem;
       font-family: inherit;
       color: var(--gray-900);
-      background: #fff;
+      background: var(--surface);
       outline: none;
       transition: border-color .15s, box-shadow .15s;
     }
@@ -758,6 +776,7 @@
     <div class="stats-strip" id="stats-strip"></div>
     <div class="header-actions">
       <a href="/api/tasks/export?format=csv" class="btn-ghost" id="export-link">Export CSV</a>
+      <button class="btn-ghost" id="theme-btn">🌙</button>
       <button class="btn-ghost" id="logout-btn">Logout</button>
     </div>
   </header>
@@ -1320,6 +1339,17 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   showAuth();
 });
 
+// ── Dark mode ──────────────────────────────────────────────────────────────
+function applyTheme(dark) {
+  document.documentElement.dataset.theme = dark ? 'dark' : '';
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  document.getElementById('theme-btn').textContent = dark ? '☀️' : '🌙';
+}
+
+document.getElementById('theme-btn').addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme !== 'dark');
+});
+
 // ── Keyboard shortcuts ─────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   const tag = document.activeElement?.tagName;
@@ -1351,6 +1381,10 @@ document.addEventListener('keydown', e => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 (async () => {
+  const saved = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(saved ? saved === 'dark' : prefersDark);
+
   const res = await fetch('/api/tasks?limit=1');
   if (res.ok) { showApp(); } else { showAuth(); }
 })();
