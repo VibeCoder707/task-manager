@@ -9,6 +9,11 @@ const taskSchema = new mongoose.Schema({
   priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
   labels: { type: [String], default: [] },
   order: { type: Number, default: 0 },
+}, { toJSON: { virtuals: true } });
+
+taskSchema.virtual('overdue').get(function () {
+  if (!this.dueDate || this.completed) return false;
+  return this.dueDate < new Date().toISOString().slice(0, 10);
 });
 
 module.exports = mongoose.model('Task', taskSchema);

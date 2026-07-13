@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks } = require('../utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks } = require('../utils/taskService');
 const authMiddleware = require('../middleware/auth');
 
 const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels'];
@@ -34,6 +34,22 @@ router.get('/', async (req, res, next) => {
 
     const tasks = await getAllTasks(req.userId, filters);
     res.json(tasks);
+  } catch (err) { next(err); }
+});
+
+router.patch('/bulk', async (req, res, next) => {
+  try {
+    const { ids, action } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500)
+      return res.status(400).json({ error: 'ids must be a non-empty array of at most 500 items' });
+    if (!['complete', 'delete'].includes(action))
+      return res.status(400).json({ error: 'action must be "complete" or "delete"' });
+
+    const count = action === 'delete'
+      ? await bulkDeleteTasks(ids, req.userId)
+      : await bulkCompleteTasks(ids, req.userId);
+
+    res.json({ count });
   } catch (err) { next(err); }
 });
 

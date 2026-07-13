@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getAllTasks, createTask, updateTask, deleteTask } = require('../src/utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks } = require('../src/utils/taskService');
 
 const userId = new mongoose.Types.ObjectId();
 
@@ -105,5 +105,68 @@ describe('getAllTasks filters', () => {
     const tasks = await getAllTasks(userId, { search: 'meeting' });
     expect(tasks).toHaveLength(1);
     expect(tasks[0].title).toBe('My meeting');
+  });
+});
+
+describe('overdue flag', () => {
+  test('is true for past dueDate and incomplete task', async () => {
+    const task = await createTask({ title: 'Overdue task', dueDate: '2020-01-01', userId });
+    expect(task.toJSON().overdue).toBe(true);
+  });
+
+  test('is false when task is completed even with past dueDate', async () => {
+    const task = await createTask({ title: 'Done late', dueDate: '2020-01-01', userId });
+    const updated = await updateTask(task._id, { completed: true }, userId);
+    expect(updated.toJSON().overdue).toBe(false);
+  });
+
+  test('is false for future dueDate', async () => {
+    const task = await createTask({ title: 'Future task', dueDate: '2099-12-31', userId });
+    expect(task.toJSON().overdue).toBe(false);
+  });
+
+  test('is false when dueDate is empty', async () => {
+    const task = await createTask({ title: 'No due date', userId });
+    expect(task.toJSON().overdue).toBe(false);
+  });
+});
+
+describe('bulk actions', () => {
+  test('bulkCompleteTasks marks tasks completed and returns count', async () => {
+    const t1 = await createTask({ title: 'Task 1', userId });
+    const t2 = await createTask({ title: 'Task 2', userId });
+    const count = await bulkCompleteTasks([t1._id, t2._id], userId);
+    expect(count).toBe(2);
+    const tasks = await getAllTasks(userId, { completed: true });
+    expect(tasks.map(t => t.title)).toEqual(expect.arrayContaining(['Task 1', 'Task 2']));
+  });
+
+  test('bulkCompleteTasks ignores IDs belonging to another user', async () => {
+    const otherUserId = new mongoose.Types.ObjectId();
+    const mine = await createTask({ title: 'Mine', userId });
+    const theirs = await createTask({ title: 'Theirs', userId: otherUserId });
+    const count = await bulkCompleteTasks([mine._id, theirs._id], userId);
+    expect(count).toBe(1);
+    const theirTasks = await getAllTasks(otherUserId, { completed: true });
+    expect(theirTasks).toHaveLength(0);
+  });
+
+  test('bulkDeleteTasks removes tasks and returns count', async () => {
+    const t1 = await createTask({ title: 'Delete me 1', userId });
+    const t2 = await createTask({ title: 'Delete me 2', userId });
+    const count = await bulkDeleteTasks([t1._id, t2._id], userId);
+    expect(count).toBe(2);
+    const remaining = await getAllTasks(userId);
+    expect(remaining.map(t => t.title)).not.toEqual(expect.arrayContaining(['Delete me 1', 'Delete me 2']));
+  });
+
+  test('bulkDeleteTasks ignores IDs belonging to another user', async () => {
+    const otherUserId = new mongoose.Types.ObjectId();
+    const mine = await createTask({ title: 'Mine', userId });
+    const theirs = await createTask({ title: 'Theirs', userId: otherUserId });
+    const count = await bulkDeleteTasks([mine._id, theirs._id], userId);
+    expect(count).toBe(1);
+    const theirTasks = await getAllTasks(otherUserId);
+    expect(theirTasks).toHaveLength(1);
   });
 });
