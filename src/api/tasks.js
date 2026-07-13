@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks } = require('../utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats } = require('../utils/taskService');
 const authMiddleware = require('../middleware/auth');
 
 const ALLOWED_FIELDS = ['title', 'description', 'dueDate', 'completed', 'priority', 'labels'];
@@ -9,6 +9,13 @@ const MAX_LABELS = 20;
 const MAX_LABEL_LEN = 50;
 
 router.use(authMiddleware);
+
+router.get('/stats', async (req, res, next) => {
+  try {
+    const stats = await getTaskStats(req.userId);
+    res.json(stats);
+  } catch (err) { next(err); }
+});
 
 router.get('/', async (req, res, next) => {
   try {

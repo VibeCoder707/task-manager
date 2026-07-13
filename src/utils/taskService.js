@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Task = require('../models/Task');
 
 async function getAllTasks(userId, { completed, priority, label, search, sortBy, order } = {}) {
@@ -44,4 +45,40 @@ async function bulkDeleteTasks(ids, userId) {
   return result.deletedCount;
 }
 
-module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks };
+async function getTaskStats(userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [result] = await Task.aggregate([
+    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    {
+      $group: {
+        _id: null,
+        total:     { $sum: 1 },
+        completed: { $sum: { $cond: ['$completed', 1, 0] } },
+        overdue: {
+          $sum: {
+            $cond: [{ $and: [
+              { $eq: ['$completed', false] },
+              { $gt: ['$dueDate', ''] },
+              { $lt: ['$dueDate', today] },
+            ]}, 1, 0],
+          },
+        },
+        low:    { $sum: { $cond: [{ $eq: ['$priority', 'low'] },    1, 0] } },
+        medium: { $sum: { $cond: [{ $eq: ['$priority', 'medium'] }, 1, 0] } },
+        high:   { $sum: { $cond: [{ $eq: ['$priority', 'high'] },   1, 0] } },
+      },
+    },
+  ]);
+
+  if (!result) return { total: 0, completed: 0, incomplete: 0, overdue: 0, byPriority: { low: 0, medium: 0, high: 0 } };
+
+  return {
+    total:      result.total,
+    completed:  result.completed,
+    incomplete: result.total - result.completed,
+    overdue:    result.overdue,
+    byPriority: { low: result.low, medium: result.medium, high: result.high },
+  };
+}
+
+module.exports = { getAllTasks, createTask, updateTask, deleteTask, reorderTasks, bulkCompleteTasks, bulkDeleteTasks, getTaskStats };

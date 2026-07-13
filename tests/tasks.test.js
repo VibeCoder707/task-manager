@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks } = require('../src/utils/taskService');
+const { getAllTasks, createTask, updateTask, deleteTask, bulkCompleteTasks, bulkDeleteTasks, getTaskStats } = require('../src/utils/taskService');
 
 const userId = new mongoose.Types.ObjectId();
 
@@ -197,5 +197,51 @@ describe('sortBy=dueDate', () => {
     const tasks = await getAllTasks(userId);
     expect(tasks[0].title).toBe('First');
     expect(tasks[1].title).toBe('Second');
+  });
+});
+
+describe('getTaskStats', () => {
+  test('returns all zeros when user has no tasks', async () => {
+    const emptyUserId = new mongoose.Types.ObjectId();
+    const stats = await getTaskStats(emptyUserId);
+    expect(stats).toEqual({ total: 0, completed: 0, incomplete: 0, overdue: 0, byPriority: { low: 0, medium: 0, high: 0 } });
+  });
+
+  test('counts total, completed, and incomplete correctly', async () => {
+    await createTask({ title: 'T1', userId });
+    await createTask({ title: 'T2', userId });
+    const t3 = await createTask({ title: 'T3', userId });
+    await updateTask(t3._id, { completed: true }, userId);
+    const stats = await getTaskStats(userId);
+    expect(stats.total).toBe(3);
+    expect(stats.completed).toBe(1);
+    expect(stats.incomplete).toBe(2);
+  });
+
+  test('counts overdue correctly — only incomplete tasks with past dueDate', async () => {
+    await createTask({ title: 'Overdue', dueDate: '2020-01-01', userId });
+    const done = await createTask({ title: 'Done overdue', dueDate: '2020-01-01', userId });
+    await updateTask(done._id, { completed: true }, userId);
+    await createTask({ title: 'Future', dueDate: '2099-01-01', userId });
+    await createTask({ title: 'No date', userId });
+    const stats = await getTaskStats(userId);
+    expect(stats.overdue).toBe(1);
+  });
+
+  test('counts byPriority correctly', async () => {
+    await createTask({ title: 'L', priority: 'low', userId });
+    await createTask({ title: 'M1', priority: 'medium', userId });
+    await createTask({ title: 'M2', priority: 'medium', userId });
+    await createTask({ title: 'H', priority: 'high', userId });
+    const stats = await getTaskStats(userId);
+    expect(stats.byPriority).toEqual({ low: 1, medium: 2, high: 1 });
+  });
+
+  test('does not include another user\'s tasks', async () => {
+    const otherUserId = new mongoose.Types.ObjectId();
+    await createTask({ title: 'Mine', userId });
+    await createTask({ title: 'Theirs', userId: otherUserId });
+    const stats = await getTaskStats(userId);
+    expect(stats.total).toBe(1);
   });
 });
