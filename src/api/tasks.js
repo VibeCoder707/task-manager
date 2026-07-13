@@ -13,7 +13,17 @@ router.use(authMiddleware);
 router.get('/', async (req, res, next) => {
   try {
     const filters = {};
-    const { completed, priority, label, search } = req.query;
+    const { completed, priority, label, search, sortBy, order } = req.query;
+
+    if (sortBy !== undefined && sortBy !== 'dueDate')
+      return res.status(400).json({ error: 'sortBy must be "dueDate"' });
+    if (order !== undefined && !['asc', 'desc'].includes(order))
+      return res.status(400).json({ error: 'order must be "asc" or "desc"' });
+    if (order !== undefined && sortBy === undefined)
+      return res.status(400).json({ error: 'order requires sortBy' });
+
+    if (sortBy) filters.sortBy = sortBy;
+    if (order) filters.order = order;
 
     if (completed !== undefined) {
       if (completed !== 'true' && completed !== 'false')

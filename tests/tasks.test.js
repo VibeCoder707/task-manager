@@ -170,3 +170,32 @@ describe('bulk actions', () => {
     expect(theirTasks).toHaveLength(1);
   });
 });
+
+describe('sortBy=dueDate', () => {
+  test('sorts tasks by dueDate ascending by default', async () => {
+    await createTask({ title: 'C', dueDate: '2026-12-01', userId });
+    await createTask({ title: 'A', dueDate: '2026-01-01', userId });
+    await createTask({ title: 'B', dueDate: '2026-06-15', userId });
+    const tasks = await getAllTasks(userId, { sortBy: 'dueDate' });
+    const titles = tasks.filter(t => t.dueDate).map(t => t.title);
+    expect(titles).toEqual(['A', 'B', 'C']);
+  });
+
+  test('sorts tasks by dueDate descending', async () => {
+    await createTask({ title: 'C', dueDate: '2026-12-01', userId });
+    await createTask({ title: 'A', dueDate: '2026-01-01', userId });
+    await createTask({ title: 'B', dueDate: '2026-06-15', userId });
+    const tasks = await getAllTasks(userId, { sortBy: 'dueDate', order: 'desc' });
+    const titles = tasks.filter(t => t.dueDate).map(t => t.title);
+    expect(titles).toEqual(['C', 'B', 'A']);
+  });
+
+  test('default sort (no sortBy) uses manual order field', async () => {
+    const t1 = await createTask({ title: 'First', dueDate: '2026-12-01', userId });
+    const t2 = await createTask({ title: 'Second', dueDate: '2026-01-01', userId });
+    await require('../src/utils/taskService').reorderTasks([t1._id, t2._id], userId);
+    const tasks = await getAllTasks(userId);
+    expect(tasks[0].title).toBe('First');
+    expect(tasks[1].title).toBe('Second');
+  });
+});

@@ -1,6 +1,6 @@
 const Task = require('../models/Task');
 
-async function getAllTasks(userId, { completed, priority, label, search } = {}) {
+async function getAllTasks(userId, { completed, priority, label, search, sortBy, order } = {}) {
   const query = { userId };
   if (completed !== undefined) query.completed = completed;
   if (priority) query.priority = priority;
@@ -9,7 +9,10 @@ async function getAllTasks(userId, { completed, priority, label, search } = {}) 
     { title: { $regex: search, $options: 'i' } },
     { description: { $regex: search, $options: 'i' } },
   ];
-  return Task.find(query).sort({ order: 1, _id: 1 });
+  const sort = sortBy === 'dueDate'
+    ? { dueDate: order === 'desc' ? -1 : 1, _id: 1 }
+    : { order: 1, _id: 1 };
+  return Task.find(query).sort(sort);
 }
 
 async function createTask({ title, description, dueDate, priority, labels, userId }) {
