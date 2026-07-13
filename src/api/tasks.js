@@ -89,7 +89,7 @@ router.post('/reorder', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const { title, description, dueDate, priority, labels } = req.body;
+    const { title, description, dueDate, priority, labels, recurrence } = req.body;
     if (!title || typeof title !== 'string' || title.trim() === '') {
       return res.status(400).json({ error: 'title is required' });
     }
@@ -107,11 +107,14 @@ router.post('/', async (req, res, next) => {
         return res.status(400).json({ error: 'invalid labels' });
       }
     }
+    if (recurrence !== undefined && !['daily', 'weekly', 'monthly', null].includes(recurrence)) {
+      return res.status(400).json({ error: 'recurrence must be daily, weekly, monthly, or null' });
+    }
     const unknown = Object.keys(req.body).filter(k => !ALLOWED_FIELDS.includes(k));
     if (unknown.length > 0) {
       return res.status(400).json({ error: `unknown fields: ${unknown.join(', ')}` });
     }
-    const task = await createTask({ title: title.trim(), description, dueDate, priority, labels, userId: req.userId });
+    const task = await createTask({ title: title.trim(), description, dueDate, priority, labels, recurrence, userId: req.userId });
     res.status(201).json(task);
   } catch (err) { next(err); }
 });
